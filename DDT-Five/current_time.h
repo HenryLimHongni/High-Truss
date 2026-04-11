@@ -1,0 +1,15 @@
+#ifndef CURRENT_TIME_H
+#define CURRENT_TIME_H
+
+#include <sys/time.h>
+
+#include <iostream>
+
+double get_current_time() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    long long usec = tv.tv_sec * 1000000 + tv.tv_usec;
+    return usec / 1000000.0;
+}
+
+#endif
