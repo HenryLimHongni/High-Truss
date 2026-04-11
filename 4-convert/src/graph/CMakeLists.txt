@@ -1,0 +1,6 @@
+aux_source_directory(. srcs)
+include_directories(${PROJECT_SOURCE_DIR}/include)
+link_directories(${PROJECT_SOURCE_DIR}/lib)
+link_libraries(utils)
+add_library(graph STATIC ${srcs})
+target_link_libraries(graph PUBLIC bloom)
