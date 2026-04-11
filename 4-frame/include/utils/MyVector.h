@@ -1,4 +1,9 @@
-
+/*
+ * MyVector.h
+ *
+ *  Created on: 9 Oct, 2015
+ *      Author: jhgan
+ */
 
 #ifndef MYVECTOR_H_
 #define MYVECTOR_H_

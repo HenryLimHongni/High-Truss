@@ -1,6 +1,6 @@
 #include <iostream>
-#include <iomanip>
 #include <string>
+#include <iomanip>
 
 #include "graph/graph.h"
 #include "utils/current_time.h"
@@ -11,23 +11,20 @@ int main(int argc, char **argv) {
         filepath = argv[1];
     }
 
-    // File input happens inside Graph constructor, so it is excluded.
-    auto *graph = new Graph(filepath);
+    auto *graph = new Graph(filepath);   // file reading happens here, not timed
 
-    // Start timing from bloom/index construction.
-    double total_compute_start = get_current_time();
+    double algo_start = get_current_time();
 
     graph->construct_index();
     graph->bitruss_decomposition();
 
-    double total_compute_time = get_current_time() - total_compute_start;
+    double algo_end = get_current_time();
 
     std::cout << std::fixed << std::setprecision(6)
-              << "Total compute time (index + decomposition, excluding I/O):\t"
-              << total_compute_time << "sec\n";
+              << "Total algorithm time (excluding file read/write):\t"
+              << (algo_end - algo_start) << " sec\n";
 
-    // Output mapping / writing is excluded from timing.
-    graph->output_bitruss_number(filepath);
+    graph->output_bitruss_number(filepath);  // output not timed
 
     delete graph;
     return 0;

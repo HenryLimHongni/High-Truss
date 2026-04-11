@@ -38,27 +38,10 @@ struct PairHashLL {
     }
 };
 
-// one 2-path in a bloom
 struct PathInfo {
-    ui e1;   // edge (u, v)
-    ui e2;   // edge (v, w)
-    bool alive;
+    ui e1; // edge (u, v)
+    ui e2; // edge (v, w)
 };
-
-struct LocalBloomState {
-    std::vector<PathInfo> paths;                 // all 2-paths in this bloom
-    int alivePathCount = 0;                      // number of alive 2-paths
-    std::unordered_map<ui, int> edgeToPathIdx;   // in one bloom, an edge appears in at most one 2-path
-};
-
-struct LocalState {
-    std::vector<int> support;                    // current support
-    std::vector<char> peeled;                    // whether edge has been peeled
-    std::vector<std::vector<int>> edgeToBlooms;  // blooms containing each edge
-    std::vector<LocalBloomState> blooms;         // local bloom states for direct support update
-};
-
-static std::unordered_map<Graph*, LocalState> gLocalState;
 
 } // namespace
 
@@ -178,8 +161,6 @@ Graph::Graph(const std::string path) {
 }
 
 Graph::~Graph() {
-    gLocalState.erase(this);
-
     delete[] degree;
     degree = nullptr;
 
@@ -202,162 +183,231 @@ Graph::~Graph() {
 void Graph::construct_index() {
     double start = get_current_time();
 
+    struct AdjEdge {
+        int to;
+        ui eid;
+    };
+
+    struct Record {
+        int u;
+        int w;
+        ui e1;
+        ui e2;
+        size_t seq;   // original generation order
+    };
+
     auto higher_priority = [&](int x, int y) -> bool {
         if (degree[x] != degree[y]) return degree[x] > degree[y];
         return x > y;
     };
 
-    auto make_key = [&](int a, int b) -> unsigned long long {
-        if (a > b) std::swap(a, b);
-        return (static_cast<unsigned long long>(static_cast<unsigned int>(a)) << 32) |
-               static_cast<unsigned int>(b);
-    };
-
-    struct AdjItem {
-        int to;
-        ui eid;
-    };
-
-    struct TwoPathRec {
-        unsigned long long key; // encoded (u,w), with u < w
-        ui e1;
-        ui e2;
-    };
-
     // ------------------------------------------------------------
-    // Step 1. Build adjacency lists that directly store edge IDs.
-    // This avoids any (u,v)->eid hash lookup during 2-path enumeration.
+    // Step 1. Build adjacency with edge ids, while preserving the
+    // exact neighbor order used by nbr[v].
+    //
+    // Original nbr[v] is sorted increasingly by vertex id.
+    // We keep exactly the same order, and for each nbr[v][k] attach
+    // the corresponding edge id.
     // ------------------------------------------------------------
-    std::vector<std::vector<AdjItem>> adjE(n);
-    adjE.reserve(n);
-    for (int u = 0; u < n; ++u) {
-        adjE[u].reserve(static_cast<size_t>(degree[u]));
+    std::vector<std::vector<AdjEdge>> adjE(n);
+    for (int v = 0; v < n; ++v) {
+        adjE[v].reserve(degree[v]);
     }
 
     for (ui eid = 0; eid < static_cast<ui>(m); ++eid) {
-        int u = uniqueEdgesCompressedInputOrder[eid].first;
-        int v = uniqueEdgesCompressedInputOrder[eid].second;
+        int a = uniqueEdgesCompressedInputOrder[eid].first;
+        int b = uniqueEdgesCompressedInputOrder[eid].second;
         edge[eid].id = eid;
 
-        adjE[u].push_back({v, eid});
-        adjE[v].push_back({u, eid});
+        adjE[a].push_back({b, eid});
+        adjE[b].push_back({a, eid});
     }
-
-    for (int u = 0; u < n; ++u) {
-        std::sort(adjE[u].begin(), adjE[u].end(),
-                  [](const AdjItem &a, const AdjItem &b) {
-                      return a.to < b.to;
-                  });
-    }
-
-    // ------------------------------------------------------------
-    // Step 2. Enumerate all priority 2-paths u-v-w.
-    // Conditions:
-    //   priority(u) > priority(v)
-    //   priority(u) > priority(w)
-    // Then group later by key=(u,w).
-    // ------------------------------------------------------------
-    std::vector<TwoPathRec> allPaths;
-    allPaths.reserve(static_cast<size_t>(m) * 2);
 
     for (int v = 0; v < n; ++v) {
-        const auto &adjV = adjE[v];
-        const int dv = static_cast<int>(adjV.size());
+        std::sort(adjE[v].begin(), adjE[v].end(),
+                  [](const AdjEdge &x, const AdjEdge &y) {
+                      return x.to < y.to;
+                  });
 
-        for (int i = 0; i < dv; ++i) {
-            const int u = adjV[i].to;
-            if (!higher_priority(u, v)) continue;
+        if (static_cast<int>(adjE[v].size()) != degree[v]) {
+            std::cerr << "Internal error: adjE[" << v << "].size() != degree[" << v << "]."
+                      << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
 
-            const ui e_uv = adjV[i].eid;
-
-            for (int j = 0; j < dv; ++j) {
-                if (j == i) continue;
-
-                const int w = adjV[j].to;
-                if (!higher_priority(u, w)) continue;
-
-                const ui e_vw = adjV[j].eid;
-                allPaths.push_back({make_key(u, w), e_uv, e_vw});
+        // sanity check: must match nbr[v] exactly
+        for (int i = 0; i < degree[v]; ++i) {
+            if (adjE[v][i].to != nbr[v][i]) {
+                std::cerr << "Internal error: adjacency order mismatch at vertex " << v
+                          << ", position " << i << "." << std::endl;
+                std::exit(EXIT_FAILURE);
             }
         }
     }
 
     // ------------------------------------------------------------
-    // Step 3. Sort by bloom key=(u,w), then scan each group.
-    // A group with K>=2 paths forms one valid bloom.
-    // Each path contributes K-1 butterflies to both its edges.
+    // Step 2. Enumerate priority 2-paths in the EXACT SAME ORDER
+    // as the original code:
+    //
+    //   for v
+    //     for i over nbr[v]
+    //       u = nbr[v][i]
+    //       if (!higher_priority(u,v)) continue
+    //       for j over nbr[v]
+    //         w = nbr[v][j]
+    //         if (w == u) continue
+    //         if (!higher_priority(u,w)) continue
+    //         append path (u,v,w) to bloom(u,w)
+    //
+    // We first record every generated path in the original order.
     // ------------------------------------------------------------
-    std::sort(allPaths.begin(), allPaths.end(),
-              [](const TwoPathRec &a, const TwoPathRec &b) {
-                  if (a.key != b.key) return a.key < b.key;
-                  if (a.e1 != b.e1) return a.e1 < b.e1;
-                  return a.e2 < b.e2;
-              });
+    std::vector<Record> records;
+    records.reserve(static_cast<size_t>(m)); // will grow if needed
 
-    LocalState &state = gLocalState[this];
-    state = LocalState();
-    state.support.assign(static_cast<size_t>(m), 0);
-    state.peeled.assign(static_cast<size_t>(m), 0);
-    state.edgeToBlooms.assign(static_cast<size_t>(m), {});
+    size_t seq = 0;
+
+    for (int v = 0; v < n; ++v) {
+        for (int i = 0; i < degree[v]; ++i) {
+            int u = adjE[v][i].to;
+            if (!higher_priority(u, v)) continue;
+
+            ui e_uv = adjE[v][i].eid;
+
+            for (int j = 0; j < degree[v]; ++j) {
+                int w = adjE[v][j].to;
+                if (w == u) continue;
+                if (!higher_priority(u, w)) continue;
+
+                ui e_vw = adjE[v][j].eid;
+
+                records.push_back({u, w, e_uv, e_vw, seq++});
+            }
+        }
+    }
+
+    // ------------------------------------------------------------
+    // Step 3. Group records by bloom key (u,w), BUT preserve the
+    // original path insertion order inside each bloom.
+    //
+    // We do this by stable_sort on (u,w). Since records were pushed
+    // in the exact original order, stable_sort guarantees that within
+    // the same (u,w), the relative order is unchanged.
+    //
+    // Note:
+    //   the original code used unordered_map iteration for bloom order,
+    //   which is not a semantic order to preserve.
+    //   What must be preserved is the generation order of paths inside
+    //   each bloom, and this version does preserve that exactly.
+    // ------------------------------------------------------------
+    std::stable_sort(records.begin(), records.end(),
+                     [](const Record &a, const Record &b) {
+                         if (a.u != b.u) return a.u < b.u;
+                         return a.w < b.w;
+                     });
+
+    std::vector<int> bloomNumber;
+    bloomNumber.reserve(records.size() / 2 + 1);
 
     bloomCount = 0;
     size_t ignoredSingletonBloom = 0;
 
-    size_t L = 0;
-    while (L < allPaths.size()) {
-        size_t R = L + 1;
-        while (R < allPaths.size() && allPaths[R].key == allPaths[L].key) ++R;
+    size_t l = 0;
+    while (l < records.size()) {
+        size_t r = l + 1;
+        while (r < records.size() &&
+               records[r].u == records[l].u &&
+               records[r].w == records[l].w) {
+            ++r;
+        }
 
-        const int K = static_cast<int>(R - L);
+        const int K = static_cast<int>(r - l);
+
         if (K <= 1) {
             ++ignoredSingletonBloom;
-            L = R;
+            l = r;
             continue;
         }
 
-        LocalBloomState lb;
-        lb.paths.reserve(static_cast<size_t>(K));
-        lb.alivePathCount = K;
-        lb.edgeToPathIdx.reserve(static_cast<size_t>(K) * 2);
+        const int currentBloomID = bloomCount++;
+        bloomNumber.push_back(K);
 
-        const int bloomID = bloomCount++;
+        for (size_t t = l; t < r; ++t) {
+            ui e1 = records[t].e1;
+            ui e2 = records[t].e2;
 
-        for (int idx = 0; idx < K; ++idx) {
-            const ui e1 = allPaths[L + idx].e1;
-            const ui e2 = allPaths[L + idx].e2;
+            ui index1 = edge[e1].add_host_bloom_and_twin_edge(currentBloomID, e2);
+            ui index2 = edge[e2].add_host_bloom_and_twin_edge(currentBloomID, e1);
 
-            lb.paths.push_back({e1, e2, true});
+            edge[e1].add_host_bloom_index_of_twin_edge(index2);
+            edge[e2].add_host_bloom_index_of_twin_edge(index1);
 
-            // In one bloom, an edge appears in at most one 2-path.
-            lb.edgeToPathIdx.emplace(e1, idx);
-            lb.edgeToPathIdx.emplace(e2, idx);
-
-            state.edgeToBlooms[e1].push_back(bloomID);
-            state.edgeToBlooms[e2].push_back(bloomID);
-
-            state.support[e1] += (K - 1);
-            state.support[e2] += (K - 1);
+            edge[e1].add_butterfly_support(K - 1);
+            edge[e2].add_butterfly_support(K - 1);
         }
 
-        state.blooms.push_back(std::move(lb));
-        L = R;
+        l = r;
     }
 
-    for (ui i = 0; i < static_cast<ui>(m); ++i) {
-        initialButterflySupport[i] = state.support[i];
+    bloom = new Bloom[bloomCount];
+    for (int i = 0; i < bloomCount; i++) {
+        bloom[i].id = i;
+        bloom[i].bloomNumber = bloomNumber[i];
+        bloom[i].initialize_space();
     }
 
-    bloom = nullptr;
-    /*
     std::cout << std::fixed << std::setprecision(6)
               << "bloom construction time:\t" << get_current_time() - start
-              << "sec\n";
-              */
+              << " sec\n";
     std::cout << "valid blooms = " << bloomCount
               << ", ignored singleton blooms = " << ignoredSingletonBloom
               << std::endl;
 
-    // adjacency no longer needed after index construction
+    double start1 = get_current_time();
+
+    // ------------------------------------------------------------
+    // Step 4. Build member-edge indices for all nonzero-support edges.
+    // Save the initial support before decomposition starts.
+    // ------------------------------------------------------------
+    extraBloom.id = bloomCount;
+    extraBloom.bloomNumber = static_cast<int>(m);
+    extraBloom.initialize_space_member_edge_only();
+
+    for (ui i = 0; i < m; i++) {
+        auto &currentEdge = edge[i];
+        int butterflySupport = currentEdge.get_butterfly_support();
+
+        initialButterflySupport[i] = butterflySupport;
+
+        if (butterflySupport == 0) {
+            if (currentEdge.get_host_bloom_number() != 0) {
+                std::cerr << "Internal error: edge " << i
+                          << " has zero support but nonzero host bloom number."
+                          << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            edgeToPeel--;
+            continue;
+        }
+
+        currentEdge.compute_slack_value();
+
+        const ui hostNum = currentEdge.get_host_bloom_number();
+        for (ui j = 0; j < hostNum; j++) {
+            int bloomID = currentEdge.get_host_bloom_id_by_index(j);
+            pair_t index = bloom[bloomID].add_member_edge(i, j, edge);
+            currentEdge.add_reverse_index_in_host_bloom(index);
+        }
+
+        if (currentEdge.reverseIndexInHostBloom.size() != currentEdge.hostBloom.size()) {
+            std::cerr << "Internal error: reverseIndexInHostBloom.size() != hostBloom.size() "
+                      << "for edge " << i << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        pair_t index = extraBloom.add_member_edge(i, edge);
+        currentEdge.set_reverse_index_in_extra_bloom(index);
+    }
+
     delete[] nbrAll;
     nbrAll = nullptr;
 
@@ -367,157 +417,184 @@ void Graph::construct_index() {
     delete[] degree;
     degree = nullptr;
 
+    std::vector<int>().swap(bloomNumber);
+    std::vector<Record>().swap(records);
+    std::vector<std::vector<AdjEdge>>().swap(adjE);
 
-    //std::cout << std::fixed << std::setprecision(6)<< "Index construction time:\t" << get_current_time() - start<< "sec\n";
+    std::cout << std::fixed << std::setprecision(6)
+              << "index finalization time:\t" << get_current_time() - start1
+              << " sec\n";
 }
-
-// ------------------------------------------------------------------
-// The following functions are kept only to satisfy the class interface.
-// They are not used in the new support-driven decomposition.
-// ------------------------------------------------------------------
 void Graph::remove_edge_from_bloom_by_index(int bloomID, pair_t index) {
-    (void)bloomID;
-    (void)index;
+    affect_edge_t affectEdgeInfo = bloom[bloomID].remove_member_by_index(index);
+    if (affectEdgeInfo.first == static_cast<ui>(-1)) {
+        return;
+    } else {
+        ui affectEdgeID = affectEdgeInfo.first;
+        ui affectIndex = affectEdgeInfo.second;
+        edge[affectEdgeID].set_reverse_index_by_index(affectIndex, index);
+    }
 }
 
 void Graph::remove_edge_from_extra_bloom_by_index(pair_t index) {
-    (void)index;
+    ui affectEdgeID = extraBloom.remove_member_by_index_id_only(index);
+    if (affectEdgeID == static_cast<ui>(-1)) {
+        return;
+    } else {
+        edge[affectEdgeID].set_reverse_index_in_extra_bloom(index);
+    }
 }
 
 void Graph::remove_bloom_from_edge_by_index(ui edgeID, ui index) {
-    (void)edgeID;
-    (void)index;
-}
-
-int Graph::collect_counter(ui edgeID) {
-    (void)edgeID;
-    return 0;
-}
-
-void Graph::check_mature_edge(ui edgeID, std::queue<ui> &peelList) {
-    (void)edgeID;
-    (void)peelList;
-}
-
-void Graph::peel_edge(ui edgeID, std::queue<ui> &peelList) {
-    (void)edgeID;
-    (void)peelList;
+    affect_bloom_t affectBloomInfo = edge[edgeID].remove_host_bloom_by_index(index);
+    if (std::get<0>(affectBloomInfo) == -1) {
+        return;
+    } else {
+        if (std::get<1>(affectBloomInfo).first != -1) {
+            bloom[std::get<0>(affectBloomInfo)].set_reverse_index_by_index(
+                std::get<1>(affectBloomInfo), index);
+        }
+        edge[std::get<2>(affectBloomInfo)].set_twin_index_by_index(
+            std::get<3>(affectBloomInfo), index);
+    }
 }
 
 void Graph::bitruss_decomposition() {
+    std::ifstream statm_file("/proc/self/statm");
+    if (statm_file) {
+        size_t size, resident, share, text, lib, data, dt;
+        statm_file >> size >> resident >> share >> text >> lib >> data >> dt;
+        std::cout << "Memory usage: "
+                  << resident * sysconf(_SC_PAGESIZE) / 1024
+                  << " KB" << std::endl;
+    } else {
+        std::cerr << "Failed to open /proc/self/statm" << std::endl;
+    }
+
+    ui visitedEdge = 0;
+    std::queue<ui> peelList;
+    std::vector<ui> matureList;
+
     double start = get_current_time();
     std::cout << "bitruss decomposing..." << std::endl;
 
-    LocalState &state = gLocalState[this];
-    if (state.support.size() != static_cast<size_t>(m)) {
-        std::cerr << "Internal error: local support array is not initialized." << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-
-    int maxSupport = 0;
-    for (ui i = 0; i < m; ++i) {
-        if (state.support[i] > maxSupport) maxSupport = state.support[i];
-    }
-
-    // bucket-based peeling
-    std::vector<std::vector<ui>> buckets(static_cast<size_t>(maxSupport + 1));
-    for (ui i = 0; i < m; ++i) {
-        buckets[state.support[i]].push_back(i);
-    }
-
-    auto push_to_bucket = [&](ui eid) {
-        int s = state.support[eid];
-        if (s < 0) s = 0;
-        if (s >= static_cast<int>(buckets.size())) {
-            buckets.resize(static_cast<size_t>(s + 1));
-        }
-        buckets[s].push_back(eid);
-    };
-
-    auto dec_support = [&](ui eid, int delta, int currentK) {
-        if (delta <= 0) return;
-        if (state.peeled[eid]) return;
-
-        int oldSup = state.support[eid];
-        int newSup = oldSup - delta;
-        if (newSup < currentK) newSup = currentK;
-        if (newSup == oldSup) return;
-
-        state.support[eid] = newSup;
-        push_to_bucket(eid);
-    };
-
-    ui visitedEdge = 0;
-
-    for (int k = 0; k < static_cast<int>(buckets.size()); ++k) {
-        size_t ptr = 0;
-        while (ptr < buckets[k].size()) {
-            ui edgeID = buckets[k][ptr++];
-            if (state.peeled[edgeID]) continue;
-            if (state.support[edgeID] != k) continue;
-
-            state.peeled[edgeID] = 1;
-            bitrussNumber[edgeID] = k;
-            ++visitedEdge;
-
-            const std::vector<int> hostBlooms = state.edgeToBlooms[edgeID];
-
-            for (int bloomID : hostBlooms) {
-                LocalBloomState &lb = state.blooms[bloomID];
-                if (lb.alivePathCount <= 0) continue;
-
-                auto it = lb.edgeToPathIdx.find(edgeID);
-                if (it == lb.edgeToPathIdx.end()) continue;
-
-                int pathIdx = it->second;
-                if (pathIdx < 0 || pathIdx >= static_cast<int>(lb.paths.size())) continue;
-
-                PathInfo &deadPath = lb.paths[pathIdx];
-                if (!deadPath.alive) continue;
-
-                ui twinEdgeID = (deadPath.e1 == edgeID ? deadPath.e2 : deadPath.e1);
-
-                int otherPathCount = lb.alivePathCount - 1;
-
-                dec_support(twinEdgeID, otherPathCount, k);
-
-                for (int q = 0; q < static_cast<int>(lb.paths.size()); ++q) {
-                    if (q == pathIdx) continue;
-                    PathInfo &p = lb.paths[q];
-                    if (!p.alive) continue;
-
-                    dec_support(p.e1, 1, k);
-                    dec_support(p.e2, 1, k);
-                }
-
-                deadPath.alive = false;
-                lb.alivePathCount--;
-
-                lb.edgeToPathIdx.erase(deadPath.e1);
-                lb.edgeToPathIdx.erase(deadPath.e2);
+    while (visitedEdge < edgeToPeel) {
+        if (peelList.empty()) {
+            extraBloom.send_value_to_member(matureList, peelList, edge);
+            for (ui i = 0; i < matureList.size(); i++) {
+                ui edgeID = matureList[i];
+                check_mature_edge(edgeID, peelList);
             }
-        }
+            matureList.clear();
+        } else {
+            while (!peelList.empty()) {
+                ui edgeID = peelList.front();
+                peelList.pop();
 
-        if (k + 1 >= static_cast<int>(buckets.size()) && visitedEdge < static_cast<ui>(m)) {
-            buckets.resize(static_cast<size_t>(k + 2));
-        }
-    }
+                if (bitrussNumber[edgeID] != 0)
+                    continue;
 
-    if (visitedEdge != static_cast<ui>(m)) {
-        for (ui i = 0; i < m; ++i) {
-            if (!state.peeled[i]) {
-                state.peeled[i] = 1;
-                bitrussNumber[i] = state.support[i];
-                ++visitedEdge;
+                bitrussNumber[edgeID] = extraBloom.get_counter();
+                peel_edge(edgeID, peelList);
+                visitedEdge++;
             }
         }
     }
-    /*
 
     std::cout << std::fixed << std::setprecision(6)
-              << "Bitruss decomposition time:\t" << get_current_time() - start
-              << "sec\n";
-    */
+              << "bitruss decomposition time:\t" << get_current_time() - start
+              << " sec\n";
+}
+
+void Graph::peel_edge(ui edgeID, std::queue<ui> &peelList) {
+    auto *peelEdge = &edge[edgeID];
+    pair_t index = peelEdge->get_reverse_index_in_extra_bloom();
+
+    remove_edge_from_extra_bloom_by_index(index);
+
+    const ui hostNum = peelEdge->get_host_bloom_number();
+
+    for (ui i = 0; i < hostNum; i++) {
+        int bloomID = peelEdge->get_host_bloom_id_by_index(i);
+        TwinInfo twinEdgeInfo = peelEdge->get_twin_edge_info_by_index(i);
+        pair_t reverseIndex = peelEdge->get_reverse_index_in_host_bloom_by_index(i);
+        auto *currentBloom = &bloom[bloomID];
+        int bloomNumber = currentBloom->bloomNumber;
+        ui twinEdgeID = twinEdgeInfo.twinEdgeID;
+
+        remove_edge_from_bloom_by_index(bloomID, reverseIndex);
+
+        ui indexInTwinEdge = twinEdgeInfo.hostBloomIndex;
+        pair_t indexInHostBloom =
+            edge[twinEdgeID].get_reverse_index_in_host_bloom_by_index(indexInTwinEdge);
+
+        if (bloomNumber <= 1) {
+            remove_edge_from_bloom_by_index(bloomID, indexInHostBloom);
+            remove_bloom_from_edge_by_index(twinEdgeID, indexInTwinEdge);
+            edge[twinEdgeID].decrease_butterfly_support(currentBloom->get_counter());
+            currentBloom->bloomNumber--;
+            continue;
+        }
+
+        currentBloom->send_value_to_member(bloomNumber - 1, indexInHostBloom, edge);
+        remove_edge_from_bloom_by_index(bloomID, indexInHostBloom);
+        remove_bloom_from_edge_by_index(twinEdgeID, indexInTwinEdge);
+        edge[twinEdgeID].decrease_butterfly_support(
+            currentBloom->get_counter() + bloomNumber - 1);
+
+        if (edge[twinEdgeID].check_maturity()) {
+            check_mature_edge(twinEdgeID, peelList);
+        }
+
+        currentBloom->bloomNumber--;
+        std::vector<ui> matureList;
+        currentBloom->send_value_to_member(matureList, peelList, edge);
+        for (ui j = 0; j < matureList.size(); j++) {
+            ui currentEdgeID = matureList[j];
+            check_mature_edge(currentEdgeID, peelList);
+        }
+    }
+}
+
+int Graph::collect_counter(ui edgeID) {
+    int counter = 0;
+    for (ui i = 0; i < edge[edgeID].get_host_bloom_number(); i++) {
+        counter += bloom[edge[edgeID].get_host_bloom_id_by_index(i)].get_counter();
+    }
+    return counter;
+}
+
+void Graph::check_mature_edge(ui edgeID, std::queue<ui> &peelList) {
+    if (edge[edgeID].isPeel)
+        return;
+
+    int counterSum = collect_counter(edgeID);
+    int requiredSupport = edge[edgeID].get_butterfly_support();
+    int extraCounter = extraBloom.get_counter();
+
+    if (counterSum + extraCounter >= requiredSupport) {
+        edge[edgeID].isPeel = true;
+        peelList.push(edgeID);
+    } else {
+        int trackValue = requiredSupport - counterSum - extraCounter;
+        int temp = edge[edgeID].get_slack_value();
+        edge[edgeID].compute_slack_value(trackValue);
+
+        if (temp != edge[edgeID].get_slack_value()) {
+            for (ui i = 0; i < edge[edgeID].get_host_bloom_number(); i++) {
+                int bloomID = edge[edgeID].get_host_bloom_id_by_index(i);
+                pair_t reverseIndex = edge[edgeID].get_reverse_index_in_host_bloom_by_index(i);
+                remove_edge_from_bloom_by_index(bloomID, reverseIndex);
+                pair_t index = bloom[bloomID].add_member_edge(edgeID, i, edge);
+                edge[edgeID].set_reverse_index_by_index(i, index);
+            }
+
+            pair_t reverseIndex = edge[edgeID].get_reverse_index_in_extra_bloom();
+            remove_edge_from_extra_bloom_by_index(reverseIndex);
+            pair_t index = extraBloom.add_member_edge(edgeID, edge);
+            edge[edgeID].set_reverse_index_in_extra_bloom(index);
+        }
+    }
 }
 
 void Graph::output_bitruss_number(std::string outputPath) {
