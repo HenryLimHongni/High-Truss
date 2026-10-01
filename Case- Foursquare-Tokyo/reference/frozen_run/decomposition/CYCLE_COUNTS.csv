@@ -1,0 +1,5 @@
+cycle_length,cycle_count,incidence_count,enumeration_seconds,peeling_seconds,cycles_with_0_users,cycles_with_1_users,cycles_with_2_users,cycles_with_3_users,cycles_with_4_users,cycles_with_5_users,cycles_with_6_users
+3,4463,13389,0.000271917,0.010994333,3925,538,0,0,0,0,0
+4,60511,242044,0.002765417,0.014208416,50581,8575,1355,0,0,0,0
+5,866729,4333645,0.0369355,0.121503708,699274,149049,18406,0,0,0,0
+6,12966448,77798688,0.577801959,0.240021541,9950054,2581847,390819,43728,0,0,0

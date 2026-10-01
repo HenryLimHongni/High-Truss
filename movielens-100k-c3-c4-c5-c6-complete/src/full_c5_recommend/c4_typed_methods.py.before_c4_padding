@@ -1,0 +1,640 @@
+from __future__ import annotations
+
+import json
+import math
+import sys
+import time
+from collections import defaultdict
+from dataclasses import dataclass, field
+from pathlib import Path
+from statistics import fmean
+from typing import Iterable, Mapping
+
+from .all_methods import (
+    _c3_direct_scores,
+    _c5_evidence,
+    _dcg,
+    _itemknn_positive_scores,
+    _itemknn_ranking,
+    _rank_with_optional_padding,
+    _read_graph_rows,
+)
+from .artifacts import CaseArtifact, load_case, load_value_file
+from .utils import atomic_write_text, write_tsv
+
+
+@dataclass
+class C4TypedEvidence:
+    max_value: int = 0
+    typed_cycle_count: int = 0
+    qualifying_ii_edge_ids: set[int] = field(default_factory=set)
+
+
+@dataclass
+class MethodResult:
+    method: str
+    structural_candidates: set[int]
+    scores: dict[int, float]
+    ranking: list[int]
+    padding_items: set[int]
+    qualifying_ii_edges: Mapping[int, int] = field(default_factory=dict)
+    typed_c4_count: Mapping[int, int] = field(default_factory=dict)
+    typed_c5_count: Mapping[int, int] = field(default_factory=dict)
+
+
+def _mean(values: Iterable[float]) -> float:
+    parsed = list(values)
+    return fmean(parsed) if parsed else 0.0
+
+
+def c4_typed_evidence(
+    *,
+    observed: set[int],
+    item_neighbors: Mapping[int, list[tuple[int, int]]],
+    c4_truss: tuple[int, ...],
+) -> dict[int, C4TypedEvidence]:
+    """Return exact evidence for typed C4 cycles u-a-b-c-u.
+
+    The pivot user u has observed both a and c. Candidate b is unseen and has
+    Item--Item edges (a,b) and (b,c). One unordered pair of distinct observed
+    anchors {a,c} defines one simple typed C4. Its score is
+    max(tau4(a,b), tau4(b,c)); the pair score is the maximum over all cycles.
+
+    Since every pair of distinct incident observed anchors forms a cycle, the
+    final maximum equals the maximum incident tau4 value, provided that at
+    least two distinct observed anchors exist. We still record the exact
+    cycle count n choose 2.
+    """
+
+    incident: dict[int, dict[int, tuple[int, int]]] = defaultdict(dict)
+    for anchor in observed:
+        for candidate, edge_id in item_neighbors.get(anchor, ()):
+            if candidate in observed:
+                continue
+            incident[candidate][anchor] = (edge_id, int(c4_truss[edge_id]))
+
+    output: dict[int, C4TypedEvidence] = {}
+    for candidate, by_anchor in incident.items():
+        if len(by_anchor) < 2:
+            continue
+        values = list(by_anchor.values())
+        cycle_count = len(values) * (len(values) - 1) // 2
+        maximum = max(value for _, value in values)
+        if maximum <= 0:
+            # A genuine u-a-b-c-u cycle gives positive C4 support/trussness
+            # to both II edges. Treat a non-positive value as an invariant
+            # failure instead of silently creating a zero-score candidate.
+            raise RuntimeError(
+                "typed C4 found but all participating II edges have "
+                "non-positive C4-trussness"
+            )
+        output[candidate] = C4TypedEvidence(
+            max_value=maximum,
+            typed_cycle_count=cycle_count,
+            qualifying_ii_edge_ids={edge_id for edge_id, _ in values},
+        )
+    return output
+
+
+def _graph_relations(case: CaseArtifact):
+    graph_rows = _read_graph_rows(case)
+    node_count = len(case.nodes)
+    degree = [0] * node_count
+    user_items: dict[int, set[int]] = defaultdict(set)
+    item_users: dict[int, set[int]] = defaultdict(set)
+    item_neighbors: dict[int, list[tuple[int, int]]] = defaultdict(list)
+
+    for edge_id, (((left_key, right_key), record), (left, right)) in enumerate(
+        zip(zip(case.edges, case.edge_records), graph_rows)
+    ):
+        if (case.node_to_id[left_key], case.node_to_id[right_key]) != (left, right):
+            raise ValueError(f"edge alignment differs at edge {edge_id}")
+        degree[left] += 1
+        degree[right] += 1
+        if record.edge_type == "UI":
+            if case.nodes[left].node_type == "user":
+                user, item = left, right
+            else:
+                user, item = right, left
+            user_items[user].add(item)
+            item_users[item].add(user)
+        elif record.edge_type == "II":
+            item_neighbors[left].append((right, edge_id))
+            item_neighbors[right].append((left, edge_id))
+        else:
+            raise ValueError(f"unexpected edge type: {record.edge_type}")
+
+    return graph_rows, degree, user_items, item_users, item_neighbors
+
+
+def evaluate_c3_c4typed_c5_itemknn(
+    *,
+    case_dir: Path,
+    output_dir: Path,
+    top_users: int = 500,
+    cutoff: int = 5,
+    ranking_limit: int | None = None,
+) -> Path:
+    """Evaluate only C3, typed C4, C5 MAX/AVG and full-catalog ItemKNN."""
+
+    case = load_case(case_dir)
+    output_dir = Path(output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if top_users <= 0:
+        raise ValueError("top_users must be positive")
+    if cutoff <= 0:
+        raise ValueError("cutoff must be positive")
+    ranking_limit = cutoff if ranking_limit is None else max(int(ranking_limit), cutoff)
+
+    _, degree, user_items, item_users, item_neighbors = _graph_relations(case)
+    catalog_items = tuple(
+        node_id
+        for node_id, record in enumerate(case.nodes)
+        if record.node_type == "item"
+    )
+    catalog_by_degree = tuple(
+        sorted(catalog_items, key=lambda item: (-degree[item], item))
+    )
+
+    truth_by_user: dict[int, set[int]] = defaultdict(set)
+    for user_key, item_key in case.truth:
+        truth_by_user[case.node_to_id[user_key]].add(case.node_to_id[item_key])
+
+    globally_ranked = sorted(
+        user_items,
+        key=lambda user: (-len(user_items[user]), case.nodes[user].entity_id, user),
+    )
+    global_rank = {user: rank for rank, user in enumerate(globally_ranked, 1)}
+    eligible = [user for user in globally_ranked if truth_by_user.get(user)]
+    selected_users = eligible[:top_users]
+    if not selected_users:
+        raise ValueError("no training user has a warm-unseen test edge")
+
+    c3_truss = load_value_file(
+        case,
+        case.root / "values" / "c3_truss.txt",
+        expected_algorithm="c3_truss",
+    )
+    c4_truss = load_value_file(
+        case,
+        case.root / "values" / "c4_truss.txt",
+        expected_algorithm="c4_truss",
+    )
+    c5_truss = load_value_file(
+        case,
+        case.root / "values" / "c5_truss.txt",
+        expected_algorithm="c5_truss",
+    )
+
+    inverse_sqrt_item_users = {
+        item: 1.0 / math.sqrt(len(users))
+        for item, users in item_users.items()
+        if users
+    }
+
+    methods = [
+        "c3-truss-direct",
+        "c4-truss-typed",
+        "c5-max",
+        "c5-avg",
+        "itemknn-full-catalog",
+    ]
+
+    per_user_rows: list[dict[str, object]] = []
+    ranking_rows: list[dict[str, object]] = []
+    selected_user_rows: list[dict[str, object]] = []
+    started = time.monotonic()
+
+    for selected_rank, user in enumerate(selected_users, 1):
+        observed = user_items[user]
+        truth = truth_by_user[user]
+
+        c3_candidates, c3_scores, c3_edges = _c3_direct_scores(
+            observed=observed,
+            item_neighbors=item_neighbors,
+            c3_truss=c3_truss,
+        )
+        c3_ranking, c3_padding = _rank_with_optional_padding(
+            structural_candidates=c3_candidates,
+            scores=c3_scores,
+            observed=observed,
+            catalog_by_degree=catalog_by_degree,
+            degree=degree,
+            target_length=ranking_limit,
+            pad=True,
+        )
+
+        c4_evidence = c4_typed_evidence(
+            observed=observed,
+            item_neighbors=item_neighbors,
+            c4_truss=c4_truss,
+        )
+        c4_candidates = set(c4_evidence)
+        c4_scores = {
+            item: float(evidence.max_value)
+            for item, evidence in c4_evidence.items()
+        }
+        c4_ranking, c4_padding = _rank_with_optional_padding(
+            structural_candidates=c4_candidates,
+            scores=c4_scores,
+            observed=observed,
+            catalog_by_degree=catalog_by_degree,
+            degree=degree,
+            target_length=ranking_limit,
+            pad=False,
+        )
+
+        c5_evidence = _c5_evidence(
+            user=user,
+            observed=observed,
+            user_items=user_items,
+            item_users=item_users,
+            item_neighbors=item_neighbors,
+            c5_truss=c5_truss,
+        )
+        c5_candidates = set(c5_evidence)
+        c5_max_scores = {
+            item: float(evidence.max_value)
+            for item, evidence in c5_evidence.items()
+        }
+        c5_avg_scores = {
+            item: evidence.cycle_value_sum / evidence.typed_cycle_count
+            for item, evidence in c5_evidence.items()
+        }
+        c5_max_ranking, c5_max_padding = _rank_with_optional_padding(
+            structural_candidates=c5_candidates,
+            scores=c5_max_scores,
+            observed=observed,
+            catalog_by_degree=catalog_by_degree,
+            degree=degree,
+            target_length=ranking_limit,
+            pad=True,
+        )
+        c5_avg_ranking, c5_avg_padding = _rank_with_optional_padding(
+            structural_candidates=c5_candidates,
+            scores=c5_avg_scores,
+            observed=observed,
+            catalog_by_degree=catalog_by_degree,
+            degree=degree,
+            target_length=ranking_limit,
+            pad=True,
+        )
+
+        itemknn_scores = _itemknn_positive_scores(
+            observed=observed,
+            user_items=user_items,
+            item_users=item_users,
+            inverse_sqrt_item_users=inverse_sqrt_item_users,
+        )
+        itemknn_candidates = set(catalog_items).difference(observed)
+        itemknn_ranking = _itemknn_ranking(
+            observed=observed,
+            positive_scores=itemknn_scores,
+            catalog_by_degree=catalog_by_degree,
+            degree=degree,
+            target_length=ranking_limit,
+        )
+
+        method_results = [
+            MethodResult(
+                method="c3-truss-direct",
+                structural_candidates=c3_candidates,
+                scores=c3_scores,
+                ranking=c3_ranking,
+                padding_items=c3_padding,
+                qualifying_ii_edges=c3_edges,
+            ),
+            MethodResult(
+                method="c4-truss-typed",
+                structural_candidates=c4_candidates,
+                scores=c4_scores,
+                ranking=c4_ranking,
+                padding_items=c4_padding,
+                qualifying_ii_edges={
+                    item: len(evidence.qualifying_ii_edge_ids)
+                    for item, evidence in c4_evidence.items()
+                },
+                typed_c4_count={
+                    item: evidence.typed_cycle_count
+                    for item, evidence in c4_evidence.items()
+                },
+            ),
+            MethodResult(
+                method="c5-max",
+                structural_candidates=c5_candidates,
+                scores=c5_max_scores,
+                ranking=c5_max_ranking,
+                padding_items=c5_max_padding,
+                typed_c5_count={
+                    item: evidence.typed_cycle_count
+                    for item, evidence in c5_evidence.items()
+                },
+                qualifying_ii_edges={
+                    item: evidence.qualifying_ii_edges
+                    for item, evidence in c5_evidence.items()
+                },
+            ),
+            MethodResult(
+                method="c5-avg",
+                structural_candidates=c5_candidates,
+                scores=c5_avg_scores,
+                ranking=c5_avg_ranking,
+                padding_items=c5_avg_padding,
+                typed_c5_count={
+                    item: evidence.typed_cycle_count
+                    for item, evidence in c5_evidence.items()
+                },
+                qualifying_ii_edges={
+                    item: evidence.qualifying_ii_edges
+                    for item, evidence in c5_evidence.items()
+                },
+            ),
+            MethodResult(
+                method="itemknn-full-catalog",
+                structural_candidates=itemknn_candidates,
+                scores={
+                    item: itemknn_scores.get(item, 0.0)
+                    for item in itemknn_candidates
+                },
+                ranking=itemknn_ranking,
+                padding_items={
+                    item for item in itemknn_ranking if item not in itemknn_scores
+                },
+            ),
+        ]
+
+        user_summary: dict[str, object] = {
+            "selected_rank": selected_rank,
+            "global_training_degree_rank": global_rank[user],
+            "user_node": user,
+            "user_id": case.nodes[user].entity_id,
+            "training_item_degree": len(observed),
+            "ground_truth_all": len(truth),
+        }
+
+        for result in method_results:
+            method_truth = result.structural_candidates.intersection(truth)
+            key = result.method.replace("-", "_")
+            user_summary[f"{key}_candidate_count"] = len(result.structural_candidates)
+            user_summary[f"{key}_candidate_ground_truth"] = len(method_truth)
+
+            for rank, item in enumerate(result.ranking[:ranking_limit], 1):
+                ranking_rows.append(
+                    {
+                        "selected_rank": selected_rank,
+                        "global_training_degree_rank": global_rank[user],
+                        "user_node": user,
+                        "user_id": case.nodes[user].entity_id,
+                        "method": result.method,
+                        "rank": rank,
+                        "item_node": item,
+                        "item_id": case.nodes[item].entity_id,
+                        "title": case.nodes[item].title,
+                        "score": result.scores.get(item, 0.0),
+                        "item_full_graph_degree": degree[item],
+                        "structural_candidate": int(item in result.structural_candidates),
+                        "padding_item": int(item in result.padding_items),
+                        "qualifying_ii_edges": result.qualifying_ii_edges.get(item, 0),
+                        "typed_c4_count": result.typed_c4_count.get(item, 0),
+                        "typed_c5_count": result.typed_c5_count.get(item, 0),
+                        "ground_truth": int(item in truth),
+                    }
+                )
+
+            top = result.ranking[:cutoff]
+            hits = sum(item in truth for item in top)
+            structural_hits = sum(
+                item in truth and item in result.structural_candidates for item in top
+            )
+            padding_hits = sum(
+                item in truth and item in result.padding_items for item in top
+            )
+            relevance = [int(item in truth) for item in top]
+            if len(relevance) < cutoff:
+                relevance.extend([0] * (cutoff - len(relevance)))
+            ideal_hits = min(len(truth), cutoff)
+            precision = hits / cutoff
+            hr = float(hits > 0)
+            recall = hits / len(truth) if truth else 0.0
+            ndcg = _dcg(relevance) / _dcg([1] * ideal_hits) if ideal_hits else 0.0
+            candidate_recall = (
+                structural_hits / len(method_truth) if method_truth else 0.0
+            )
+            per_user_rows.append(
+                {
+                    "selected_rank": selected_rank,
+                    "global_training_degree_rank": global_rank[user],
+                    "user_node": user,
+                    "user_id": case.nodes[user].entity_id,
+                    "training_item_degree": len(observed),
+                    "method": result.method,
+                    "cutoff": cutoff,
+                    "recommendation_count": len(top),
+                    "missing_slots": cutoff - len(top),
+                    "structural_candidate_count": len(result.structural_candidates),
+                    "candidate_ground_truth": len(method_truth),
+                    "ground_truth_all": len(truth),
+                    "hits": hits,
+                    "structural_hits": structural_hits,
+                    "padding_hits": padding_hits,
+                    "precision": precision,
+                    "hr": hr,
+                    "recall": recall,
+                    "candidate_recall": candidate_recall,
+                    "ndcg": ndcg,
+                }
+            )
+
+        selected_user_rows.append(user_summary)
+        if selected_rank % 10 == 0 or selected_rank == len(selected_users):
+            print(
+                f"[c4-typed-eval] users={selected_rank}/{len(selected_users)} "
+                f"elapsed_seconds={time.monotonic() - started:.1f}",
+                file=sys.stderr,
+            )
+
+    user_fields = [
+        "selected_rank",
+        "global_training_degree_rank",
+        "user_node",
+        "user_id",
+        "training_item_degree",
+        "ground_truth_all",
+    ]
+    for method in methods:
+        key = method.replace("-", "_")
+        user_fields.extend([f"{key}_candidate_count", f"{key}_candidate_ground_truth"])
+    write_tsv(output_dir / "selected_users.tsv", user_fields, selected_user_rows)
+
+    per_user_fields = [
+        "selected_rank",
+        "global_training_degree_rank",
+        "user_node",
+        "user_id",
+        "training_item_degree",
+        "method",
+        "cutoff",
+        "recommendation_count",
+        "missing_slots",
+        "structural_candidate_count",
+        "candidate_ground_truth",
+        "ground_truth_all",
+        "hits",
+        "structural_hits",
+        "padding_hits",
+        "precision",
+        "hr",
+        "recall",
+        "candidate_recall",
+        "ndcg",
+    ]
+    write_tsv(output_dir / "per_user_metrics.tsv", per_user_fields, per_user_rows)
+
+    write_tsv(
+        output_dir / "rankings_top.tsv",
+        [
+            "selected_rank",
+            "global_training_degree_rank",
+            "user_node",
+            "user_id",
+            "method",
+            "rank",
+            "item_node",
+            "item_id",
+            "title",
+            "score",
+            "item_full_graph_degree",
+            "structural_candidate",
+            "padding_item",
+            "qualifying_ii_edges",
+            "typed_c4_count",
+            "typed_c5_count",
+            "ground_truth",
+        ],
+        ranking_rows,
+    )
+
+    aggregate_rows: list[dict[str, object]] = []
+    for method in methods:
+        rows = [row for row in per_user_rows if row["method"] == method]
+        total_hits = sum(int(row["hits"]) for row in rows)
+        total_structural_hits = sum(int(row["structural_hits"]) for row in rows)
+        total_padding_hits = sum(int(row["padding_hits"]) for row in rows)
+        total_gt = sum(int(row["ground_truth_all"]) for row in rows)
+        total_candidate_gt = sum(int(row["candidate_ground_truth"]) for row in rows)
+        aggregate_rows.append(
+            {
+                "method": method,
+                "cutoff": cutoff,
+                "selected_users": len(rows),
+                "users_with_structural_candidates": sum(
+                    int(row["structural_candidate_count"]) > 0 for row in rows
+                ),
+                "zero_structural_candidate_users": sum(
+                    int(row["structural_candidate_count"]) == 0 for row in rows
+                ),
+                "average_structural_candidate_count": _mean(
+                    int(row["structural_candidate_count"]) for row in rows
+                ),
+                "average_candidate_ground_truth": _mean(
+                    int(row["candidate_ground_truth"]) for row in rows
+                ),
+                "average_ground_truth_all": _mean(
+                    int(row["ground_truth_all"]) for row in rows
+                ),
+                "average_recommendation_count": _mean(
+                    int(row["recommendation_count"]) for row in rows
+                ),
+                "total_hits": total_hits,
+                "total_structural_hits": total_structural_hits,
+                "total_padding_hits": total_padding_hits,
+                "average_precision": _mean(float(row["precision"]) for row in rows),
+                "micro_precision": total_hits / (len(rows) * cutoff) if rows else 0.0,
+                "average_hr": _mean(float(row["hr"]) for row in rows),
+                "users_with_hit": sum(float(row["hr"]) > 0 for row in rows),
+                "average_recall": _mean(float(row["recall"]) for row in rows),
+                "micro_recall": total_hits / total_gt if total_gt else 0.0,
+                "average_candidate_recall": _mean(
+                    float(row["candidate_recall"]) for row in rows
+                ),
+                "micro_candidate_recall": (
+                    total_structural_hits / total_candidate_gt
+                    if total_candidate_gt
+                    else 0.0
+                ),
+                "average_ndcg": _mean(float(row["ndcg"]) for row in rows),
+            }
+        )
+
+    aggregate_path = output_dir / "aggregate.tsv"
+    aggregate_fields = [
+        "method",
+        "cutoff",
+        "selected_users",
+        "users_with_structural_candidates",
+        "zero_structural_candidate_users",
+        "average_structural_candidate_count",
+        "average_candidate_ground_truth",
+        "average_ground_truth_all",
+        "average_recommendation_count",
+        "total_hits",
+        "total_structural_hits",
+        "total_padding_hits",
+        "average_precision",
+        "micro_precision",
+        "average_hr",
+        "users_with_hit",
+        "average_recall",
+        "micro_recall",
+        "average_candidate_recall",
+        "micro_candidate_recall",
+        "average_ndcg",
+    ]
+    write_tsv(aggregate_path, aggregate_fields, aggregate_rows)
+
+    metadata = {
+        "format_version": 1,
+        "graph_sha256": case.graph_sha256,
+        "selected_users": len(selected_users),
+        "requested_top_users": top_users,
+        "cutoff": cutoff,
+        "methods": methods,
+        "c4_definition": (
+            "typed C4 u-a-b-c-u; b is recommended to u; each cycle has "
+            "score max(tau4(a,b),tau4(b,c)); the pair score is the maximum "
+            "over all recommending typed C4s"
+        ),
+        "padding_policy": (
+            "C3 and both C5 methods pad to K with highest full-graph-degree "
+            "unseen items; C4 typed and ItemKNN do not use C4 padding"
+        ),
+        "tie_break": (
+            "score descending, full mixed-graph item degree descending, "
+            "node ID ascending"
+        ),
+        "precision": "hits / fixed K",
+        "hr": "binary hit-any at K",
+        "ndcg": "binary-relevance NDCG at K; missing recommendation slots are zero",
+        "elapsed_seconds": time.monotonic() - started,
+    }
+    atomic_write_text(
+        output_dir / "evaluation.json",
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+    )
+
+    print("===== C3 / TYPED-C4 / C5 / ITEMKNN @5 =====")
+    print(f"selected_users_with_test_gt: {len(selected_users)}")
+    print("Precision@5 uses the fixed denominator 5; HR@5 is binary hit-any.")
+    print()
+    for row in aggregate_rows:
+        print(
+            f"{row['method']:>24s}@5 "
+            f"avg_candidates={row['average_structural_candidate_count']:.4f} "
+            f"avg_candidate_gt={row['average_candidate_ground_truth']:.4f} "
+            f"avg_precision={row['average_precision']:.8f} "
+            f"avg_hr={row['average_hr']:.8f} "
+            f"avg_ndcg={row['average_ndcg']:.8f} "
+            f"total_hits={row['total_hits']}"
+        )
+    print(f"aggregate: {aggregate_path}")
+    return aggregate_path

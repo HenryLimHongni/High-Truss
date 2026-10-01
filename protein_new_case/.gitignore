@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.screen_env/
+.selected8_env/
+.conda_pkgs/
+.micromamba_root/
+pdb_cache/
+selected8_state/
+selected8_outputs/
+screen_state/
+screen_state_*/
+data_*/
+results_*/
+logs/

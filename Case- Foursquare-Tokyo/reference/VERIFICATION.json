@@ -1,0 +1,18 @@
+{
+  "clean_real_data_rerun": true,
+  "protocol": "full warm-unseen ranking for five methods with fixed-list Precision@5 and binary NDCG@5",
+  "reference_max_absolute_metric_error": 0.0,
+  "official_input_rows": 573703,
+  "training_test_edge_overlap": 0,
+  "sha256": {
+    "HEADLINE_METRICS.csv": "19941d976e09dc0a68bbf84b80bad56a4105c2db4ba5a4dbf342af26a7aaefb4",
+    "METRICS.csv": "cec79d5ccb4281d9c8650bf1d75c9cb66af6ddeecfc3bf0ad64088202748e61f",
+    "PER_USER_METRICS.csv": "1e2eb5ea49233cd5683341153a2be763e1de73f67a07b4c9cbfe33a8cefee654",
+    "AUDIT.json": "2ab3dd43c955bba8b86ad7a7cbe4701b0b336b7fc2fee0ac5420e910baabd087",
+    "MIXED_GRAPH_EDGES.tsv": "369ed561fa50de4ae210215c1a689c5ea413ff3b9eacbe541367c6e149ca1f9b",
+    "EDGE_TRUSSNESS.csv": "f6fa5fa0004ee296580d3b30bafe89f2257c866ee11a2f6bdd0fe3368f40391b",
+    "items.csv": "e0b2f673d4da764b7bd5112466eceb07116d64f80c1aa31f60e6853ae51dff98",
+    "cross_recommendations.csv": "b1bf37aad0c77e5646e653e40bb0a4c6332e29fca9e8480f68f16a0d94c1900d",
+    "queries.cypher": "87e9967c94edc5d74f4b9f091a7ad26930e074381c440843fc8b1e7ab01d842f"
+  }
+}

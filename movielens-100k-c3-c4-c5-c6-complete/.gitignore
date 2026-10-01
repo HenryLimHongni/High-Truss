@@ -1,0 +1,5 @@
+bin/
+data/
+work/
+__pycache__/
+*.pyc

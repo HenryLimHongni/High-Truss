@@ -1,0 +1,8 @@
+bin/*
+!bin/.gitkeep
+data/*
+!data/.gitkeep
+results/
+__pycache__/
+*.pyc
+.DS_Store
