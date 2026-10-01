@@ -1,6 +1,6 @@
 # README
 
-This repository contains four programs:
+This repository contains five programs and three case studies:
 
 - `4-framework`
 - `4-convert`
@@ -33,3 +33,8 @@ g++ -std=gnu++17 -O3 -march=native main.cpp -o fivecycle
 cd DDT-Five
 g++ -std=gnu++17 -O3 -march=native main.cpp -o fivecycle
 ./fivecycle filepath
+
+#Save-DDT
+cd spaceoptimize_balanced
+make -j
+./five_cycle_decomp /absolute/path/to/graph.txt
