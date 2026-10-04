@@ -1,0 +1,145 @@
+{
+  "scope": "12 synthetic mixed-graph end-to-end comparisons to supplied legacy typed-C4 evaluator with pad=True; excludes unused C5-AVG",
+  "real_movielens_full_run": false,
+  "reason_full_run_not_done": "Official binary download failed: container DNS cannot resolve files.grouplens.org.",
+  "legacy_archives": {
+    "movielens_100k_c3_c4_c5_c6_complete.zip": "fd6debb3c6c633a79a96b86d16919c7f9fd9c6ea7d36d588d19901d3eec19570",
+    "movielens_100k_typed_c4_recommend_patch.zip": "002120de2b50b20b6accd372f4162d618002aea1b4748c84baae0ced8eb2fa5a"
+  },
+  "source_equivalence": {
+    "dataset.py": {
+      "unchanged_from_original": true,
+      "sha256": "62220764da1d7acde5912018c68fa08d2ab1444d3d9ec9ec7faa26cd20ec776c"
+    },
+    "artifacts.py": {
+      "unchanged_from_original": true,
+      "sha256": "16f9ca4c513fee10e8abfdac3e000cd7cd73e794b9003306970a7988676b1e3b"
+    },
+    "utils.py": {
+      "unchanged_from_original": true,
+      "sha256": "57b50f01333550a97a72f93780acc69bc62e7fa126c152ce01bcb92c1c5f514c"
+    },
+    "short_cycle_truss.cpp": {
+      "unchanged_from_original": true,
+      "sha256": "034fc36214769b28cf534ea2dcfe2de03f1c4f9fe55cc8735d6a38d3e9aa53c7"
+    },
+    "c5_truss_sparse.cpp": {
+      "unchanged_from_original": true,
+      "sha256": "b37654402d87b8d4df41154f60e1147b842af7bd48c638b97730cd5114de0252"
+    },
+    "streaming_c6_truss.cpp": {
+      "unchanged_from_original": true,
+      "sha256": "2269d66ed5f177d97e20f6f206ba0f2e54688619dd34a8fd95e9cf2699601d16"
+    }
+  },
+  "fixtures": [
+    {
+      "fixture_seed": 0,
+      "nodes": 13,
+      "edges": 30,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 1,
+      "nodes": 13,
+      "edges": 34,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 2,
+      "nodes": 13,
+      "edges": 32,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 3,
+      "nodes": 13,
+      "edges": 31,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 4,
+      "nodes": 13,
+      "edges": 38,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 5,
+      "nodes": 13,
+      "edges": 43,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 6,
+      "nodes": 13,
+      "edges": 35,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 7,
+      "nodes": 13,
+      "edges": 35,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 8,
+      "nodes": 13,
+      "edges": 38,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 9,
+      "nodes": 13,
+      "edges": 39,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 10,
+      "nodes": 13,
+      "edges": 37,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    },
+    {
+      "fixture_seed": 11,
+      "nodes": 13,
+      "edges": 36,
+      "users_evaluated": 4,
+      "four_method_aggregates_match": true,
+      "all_ranked_items_match": true,
+      "all_per_user_metrics_match": true
+    }
+  ]
+}

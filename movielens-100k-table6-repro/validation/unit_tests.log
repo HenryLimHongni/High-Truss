@@ -1,0 +1,214 @@
+test_no_cycle_and_value_tampering (test_pipeline.BackendTests.test_no_cycle_and_value_tampering) ... [C3] starting; live backend log: /tmp/tmpx0y3z7_5/case/values/c3_backend.log
+[C3] completed edges=3 max_truss=0 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpx0y3z7_5/case/values/c4_backend.log
+[C4] completed edges=3 max_truss=0 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpx0y3z7_5/case/values/c5_backend.log
+[C5] completed edges=3 max_truss=0 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpx0y3z7_5/case/values/c6_backend.log
+[C6] completed edges=3 max_truss=0 elapsed_seconds=0.004
+ok
+test_random_against_independent_fixed_point (test_pipeline.BackendTests.test_random_against_independent_fixed_point) ... [C3] starting; live backend log: /tmp/tmpv8jfubw5/0/values/c3_backend.log
+[C3] completed edges=3 max_truss=1 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/0/values/c4_backend.log
+[C4] completed edges=3 max_truss=0 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/0/values/c5_backend.log
+[C5] completed edges=3 max_truss=0 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/0/values/c6_backend.log
+[C6] completed edges=3 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/1/values/c3_backend.log
+[C3] completed edges=7 max_truss=0 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/1/values/c4_backend.log
+[C4] completed edges=7 max_truss=2 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/1/values/c5_backend.log
+[C5] completed edges=7 max_truss=0 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/1/values/c6_backend.log
+[C6] completed edges=7 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/2/values/c3_backend.log
+[C3] completed edges=10 max_truss=1 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/2/values/c4_backend.log
+[C4] completed edges=10 max_truss=2 elapsed_seconds=0.002
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/2/values/c5_backend.log
+[C5] completed edges=10 max_truss=1 elapsed_seconds=0.007
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/2/values/c6_backend.log
+[C6] completed edges=10 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/3/values/c3_backend.log
+[C3] completed edges=6 max_truss=1 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/3/values/c4_backend.log
+[C4] completed edges=6 max_truss=1 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/3/values/c5_backend.log
+[C5] completed edges=6 max_truss=0 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/3/values/c6_backend.log
+[C6] completed edges=6 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/4/values/c3_backend.log
+[C3] completed edges=5 max_truss=0 elapsed_seconds=0.005
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/4/values/c4_backend.log
+[C4] completed edges=5 max_truss=1 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/4/values/c5_backend.log
+[C5] completed edges=5 max_truss=0 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/4/values/c6_backend.log
+[C6] completed edges=5 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/5/values/c3_backend.log
+[C3] completed edges=9 max_truss=1 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/5/values/c4_backend.log
+[C4] completed edges=9 max_truss=2 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/5/values/c5_backend.log
+[C5] completed edges=9 max_truss=0 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/5/values/c6_backend.log
+[C6] completed edges=9 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/6/values/c3_backend.log
+[C3] completed edges=8 max_truss=2 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/6/values/c4_backend.log
+[C4] completed edges=8 max_truss=2 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/6/values/c5_backend.log
+[C5] completed edges=8 max_truss=1 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/6/values/c6_backend.log
+[C6] completed edges=8 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/7/values/c3_backend.log
+[C3] completed edges=4 max_truss=0 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/7/values/c4_backend.log
+[C4] completed edges=4 max_truss=0 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/7/values/c5_backend.log
+[C5] completed edges=4 max_truss=0 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/7/values/c6_backend.log
+[C6] completed edges=4 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/8/values/c3_backend.log
+[C3] completed edges=14 max_truss=1 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/8/values/c4_backend.log
+[C4] completed edges=14 max_truss=4 elapsed_seconds=0.005
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/8/values/c5_backend.log
+[C5] completed edges=14 max_truss=6 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/8/values/c6_backend.log
+[C6] completed edges=14 max_truss=8 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/9/values/c3_backend.log
+[C3] completed edges=4 max_truss=0 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/9/values/c4_backend.log
+[C4] completed edges=4 max_truss=0 elapsed_seconds=0.008
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/9/values/c5_backend.log
+[C5] completed edges=4 max_truss=0 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/9/values/c6_backend.log
+[C6] completed edges=4 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/10/values/c3_backend.log
+[C3] completed edges=9 max_truss=1 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/10/values/c4_backend.log
+[C4] completed edges=9 max_truss=3 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/10/values/c5_backend.log
+[C5] completed edges=9 max_truss=2 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/10/values/c6_backend.log
+[C6] completed edges=9 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/11/values/c3_backend.log
+[C3] completed edges=8 max_truss=1 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/11/values/c4_backend.log
+[C4] completed edges=8 max_truss=1 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/11/values/c5_backend.log
+[C5] completed edges=8 max_truss=1 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/11/values/c6_backend.log
+[C6] completed edges=8 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/12/values/c3_backend.log
+[C3] completed edges=3 max_truss=0 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/12/values/c4_backend.log
+[C4] completed edges=3 max_truss=0 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/12/values/c5_backend.log
+[C5] completed edges=3 max_truss=0 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/12/values/c6_backend.log
+[C6] completed edges=3 max_truss=0 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/13/values/c3_backend.log
+[C3] completed edges=9 max_truss=1 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/13/values/c4_backend.log
+[C4] completed edges=9 max_truss=2 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/13/values/c5_backend.log
+[C5] completed edges=9 max_truss=1 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/13/values/c6_backend.log
+[C6] completed edges=9 max_truss=1 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/14/values/c3_backend.log
+[C3] completed edges=17 max_truss=3 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/14/values/c4_backend.log
+[C4] completed edges=17 max_truss=9 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/14/values/c5_backend.log
+[C5] completed edges=17 max_truss=18 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/14/values/c6_backend.log
+[C6] completed edges=17 max_truss=28 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmpv8jfubw5/15/values/c3_backend.log
+[C3] completed edges=5 max_truss=1 elapsed_seconds=0.006
+[C4] starting; live backend log: /tmp/tmpv8jfubw5/15/values/c4_backend.log
+[C4] completed edges=5 max_truss=0 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpv8jfubw5/15/values/c5_backend.log
+[C5] completed edges=5 max_truss=0 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmpv8jfubw5/15/values/c6_backend.log
+[C6] completed edges=5 max_truss=0 elapsed_seconds=0.004
+ok
+test_simple_cycles_and_clique (test_pipeline.BackendTests.test_simple_cycles_and_clique) ... [C3] starting; live backend log: /tmp/tmp9nep3bro/C3/values/c3_backend.log
+[C3] completed edges=3 max_truss=1 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmp9nep3bro/C4/values/c4_backend.log
+[C4] completed edges=4 max_truss=1 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmp9nep3bro/C5/values/c5_backend.log
+[C5] completed edges=5 max_truss=1 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmp9nep3bro/C6/values/c6_backend.log
+[C6] completed edges=6 max_truss=1 elapsed_seconds=0.004
+[C3] starting; live backend log: /tmp/tmp9nep3bro/K6/values/c3_backend.log
+[C3] completed edges=15 max_truss=4 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmp9nep3bro/K6/values/c4_backend.log
+[C4] completed edges=15 max_truss=12 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmp9nep3bro/K6/values/c5_backend.log
+[C5] completed edges=15 max_truss=24 elapsed_seconds=0.004
+[C6] starting; live backend log: /tmp/tmp9nep3bro/K6/values/c6_backend.log
+[C6] completed edges=15 max_truss=24 elapsed_seconds=0.004
+ok
+test_timeout_has_no_fabricated_values (test_pipeline.BackendTests.test_timeout_has_no_fabricated_values) ... [C6] starting; live backend log: /tmp/tmpi5tdrzcm/case/values/c6_backend.log
+ok
+test_empty_c4_c5_candidates_are_padded_and_user_is_not_dropped (test_pipeline.EmptyCandidateTests.test_empty_c4_c5_candidates_are_padded_and_user_is_not_dropped) ... [C3] starting; live backend log: /tmp/tmpf5jtks5l/case/values/c3_backend.log
+[C3] completed edges=7 max_truss=0 elapsed_seconds=0.004
+[C4] starting; live backend log: /tmp/tmpf5jtks5l/case/values/c4_backend.log
+[C4] completed edges=7 max_truss=0 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpf5jtks5l/case/values/c5_backend.log
+[C5] completed edges=7 max_truss=0 elapsed_seconds=0.004
+[table6-eval] users=1/1 elapsed_seconds=0.0
+===== FULL-GRAPH TABLE-6 @ 5 =====
+selected_users_with_test_gt: 1
+eligible_users_total: 1
+case: /tmp/tmpf5jtks5l/case
+graph_sha256: 33084c2994e6a2d4a403bca9b0f93af7b14a04544308e18cd564d0e9fd5c5b6b
+Precision@5 uses fixed denominator 5; HR@5 is binary hit-any.
+         c3-truss-direct@5 avg_candidates=1.0000 avg_candidate_gt=1.0000 avg_precision=0.20000000 avg_hr=1.00000000 avg_ndcg=1.00000000 total_hits=1
+          c4-truss-typed@5 avg_candidates=0.0000 avg_candidate_gt=0.0000 avg_precision=0.20000000 avg_hr=1.00000000 avg_ndcg=1.00000000 total_hits=1
+                  c5-max@5 avg_candidates=0.0000 avg_candidate_gt=0.0000 avg_precision=0.20000000 avg_hr=1.00000000 avg_ndcg=1.00000000 total_hits=1
+    itemknn-full-catalog@5 avg_candidates=5.0000 avg_candidate_gt=1.0000 avg_precision=0.20000000 avg_hr=1.00000000 avg_ndcg=1.00000000 total_hits=1
+aggregate: /tmp/tmpf5jtks5l/out/aggregate.tsv
+ok
+test_c3_uses_ii_value_only_and_keeps_zero (test_pipeline.ProtocolTests.test_c3_uses_ii_value_only_and_keeps_zero) ... ok
+test_c4_typed_requires_two_distinct_anchors (test_pipeline.ProtocolTests.test_c4_typed_requires_two_distinct_anchors) ... ok
+test_c5_typed_matches_independent_cycle_enumeration (test_pipeline.ProtocolTests.test_c5_typed_matches_independent_cycle_enumeration) ... ok
+test_c6_typed_one_cycle_two_targets (test_pipeline.ProtocolTests.test_c6_typed_one_cycle_two_targets) ... ok
+test_end_to_end_import_and_no_avg_output (test_pipeline.ProtocolTests.test_end_to_end_import_and_no_avg_output) ... [C3] starting; live backend log: /tmp/tmpa4uwcxwg/case/values/c3_backend.log
+[C3] completed edges=13 max_truss=1 elapsed_seconds=0.003
+[C4] starting; live backend log: /tmp/tmpa4uwcxwg/case/values/c4_backend.log
+[C4] completed edges=13 max_truss=2 elapsed_seconds=0.004
+[C5] starting; live backend log: /tmp/tmpa4uwcxwg/case/values/c5_backend.log
+[C5] completed edges=13 max_truss=2 elapsed_seconds=0.004
+[table6-eval] users=1/1 elapsed_seconds=0.0
+===== FULL-GRAPH TABLE-6 @ 5 =====
+selected_users_with_test_gt: 1
+eligible_users_total: 1
+case: /tmp/tmpa4uwcxwg/case
+graph_sha256: a6f80db276cc52122f7dc762917cf6f01d666d6213ad909be058871375a3b90e
+Precision@5 uses fixed denominator 5; HR@5 is binary hit-any.
+         c3-truss-direct@5 avg_candidates=2.0000 avg_candidate_gt=1.0000 avg_precision=0.40000000 avg_hr=1.00000000 avg_ndcg=0.69342640 total_hits=2
+          c4-truss-typed@5 avg_candidates=2.0000 avg_candidate_gt=1.0000 avg_precision=0.40000000 avg_hr=1.00000000 avg_ndcg=0.69342640 total_hits=2
+                  c5-max@5 avg_candidates=2.0000 avg_candidate_gt=1.0000 avg_precision=0.40000000 avg_hr=1.00000000 avg_ndcg=0.69342640 total_hits=2
+    itemknn-full-catalog@5 avg_candidates=5.0000 avg_candidate_gt=2.0000 avg_precision=0.40000000 avg_hr=1.00000000 avg_ndcg=0.69342640 total_hits=2
+aggregate: /tmp/tmpa4uwcxwg/results/aggregate.tsv
+ok
+test_global_quantile_ties_and_train_test_disjointness (test_pipeline.ProtocolTests.test_global_quantile_ties_and_train_test_disjointness) ... [II] warm_items=3 checked_pairs=3 pairs_above_threshold=3 selected_undirected_edges=3 genre_weight=0.8 year_weight=0.2 threshold_gt=0.4 top_k=20
+ok
+test_itemknn_full_catalog_score (test_pipeline.ProtocolTests.test_itemknn_full_catalog_score) ... ok
+test_padding_degree_tie_break_and_fixed_denominator (test_pipeline.ProtocolTests.test_padding_degree_tie_break_and_fixed_denominator) ... ok
+test_reference_check_reports_failure_without_changing_results (test_pipeline.ProtocolTests.test_reference_check_reports_failure_without_changing_results) ... ok
+test_similarity_weights_and_strict_threshold (test_pipeline.ProtocolTests.test_similarity_weights_and_strict_threshold) ... [II] warm_items=2 checked_pairs=1 pairs_above_threshold=0 selected_undirected_edges=0 genre_weight=0.8 year_weight=0.2 threshold_gt=0.2 top_k=20
+ok
+test_topk_is_directed_selection_then_union (test_pipeline.ProtocolTests.test_topk_is_directed_selection_then_union) ... [II] warm_items=4 checked_pairs=6 pairs_above_threshold=6 selected_undirected_edges=3 genre_weight=0.8 year_weight=0.2 threshold_gt=0.4 top_k=1
+ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.754s
+
+OK
+[import] standalone copy created: /tmp/tmpa4uwcxwg/independent; verified C[3, 4, 5]

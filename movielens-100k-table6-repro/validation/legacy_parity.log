@@ -1,0 +1,3 @@
+PASS: 12 synthetic old-vs-clean end-to-end cases.
+Compared all recommendation rows, scores, padding flags, per-user metrics and aggregates for ItemKNN/C3/C4/C5-max.
+Real MovieLens-100K full-data rerun: NOT EXECUTED (network/DNS unavailable).

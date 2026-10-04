@@ -1,0 +1,1 @@
+# No external Python packages. Python standard library only (>=3.10).

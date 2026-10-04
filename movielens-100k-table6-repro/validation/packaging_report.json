@@ -1,0 +1,32 @@
+{
+  "package": "movielens-100k-table6-repro",
+  "version": "1.0.0",
+  "python": "3.13.5",
+  "compiler": "g++ (Debian 14.2.0-19) 14.2.0",
+  "unit_tests": {
+    "tests": 16,
+    "passed": true,
+    "log": "validation/unit_tests.log"
+  },
+  "legacy_equivalence": {
+    "synthetic_end_to_end_cases": 12,
+    "passed": true,
+    "report": "validation/legacy_parity.json"
+  },
+  "real_movielens_full_dataset_evaluation": {
+    "executed": false,
+    "reason": "Container network DNS resolution of files.grouplens.org failed; no raw MovieLens data are present."
+  },
+  "reference_metrics": {
+    "origin": "user-supplied final padded-C4 run, not a new run",
+    "used_for_runtime_scoring": false,
+    "check_after_execution": true
+  },
+  "c6": {
+    "backend_included": true,
+    "small_graphs_tested": true,
+    "default": "NOT_RUN",
+    "timeout_label": "INF only for an actual recorded TIMEOUT",
+    "fabricated_metric_values": false
+  }
+}
